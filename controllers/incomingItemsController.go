@@ -54,9 +54,7 @@ func GetIncomingItems(c *gin.Context) {
 		return
 	}
 
-	err := db.Find(&incomingItems).Error
-
-	if err != nil {
+	if err := db.Debug().Preload("Products").Preload("Users").Find(&incomingItems).Error; err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error":   "Bad Request",
 			"message": err.Error(),
