@@ -14,7 +14,7 @@ func GetOutgoingItems(c *gin.Context) {
 	db := database.GetDB()
 
 	outgoingItems := []models.OutgoingItems{}
-	outgoingItemID := c.Param("outgoing_item_id")
+	outgoingItemID := c.Param("outgoingItemId")
 
 	if outgoingItemID != "" {
 		id, err := strconv.Atoi(outgoingItemID)
@@ -54,9 +54,7 @@ func GetOutgoingItems(c *gin.Context) {
 		return
 	}
 
-	err := db.Find(&outgoingItems).Error
-
-	if err != nil {
+	if err := db.Debug().Preload("Products").Preload("Users").Find(&outgoingItems).Error; err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error":   "Bad Request",
 			"message": err.Error(),

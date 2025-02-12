@@ -94,5 +94,6 @@ func UserLogin(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"token": token,
+		"user":  User,
 	})
 }
