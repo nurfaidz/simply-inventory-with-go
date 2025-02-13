@@ -17,6 +17,8 @@ func StartServer() *gin.Engine {
 		userRouter.POST("regiswater", controllers.UserRegister)
 
 		userRouter.POST("login", controllers.UserLogin)
+
+		userRouter.POST("logout", controllers.UserLogout)
 	}
 
 	productRouter := r.Group("/products")
