@@ -3,7 +3,6 @@ package controllers
 import (
 	"fmt"
 	"inventoryapp/database"
-	"inventoryapp/helpers"
 	"inventoryapp/models"
 	"net/http"
 	"strconv"
@@ -82,6 +81,9 @@ func CreateIncomingItem(c *gin.Context) {
 
 	fmt.Printf("IncomingItem: %+v\n", IncomingItem)
 
+	// add status success to incoming item
+	IncomingItem.Status = "success"
+
 	if err := db.Debug().Create(&IncomingItem).Error; err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error":   "Bad Request",
@@ -128,7 +130,6 @@ func CreateIncomingItem(c *gin.Context) {
 
 func UpdateIncomingItem(c *gin.Context) {
 	db := database.GetDB()
-	// contentType := helpers.GetContentType(c)
 
 	IncomingItem := models.IncomingItems{}
 	incomingItemId, _ := strconv.Atoi(c.Param("incomingItemId"))
@@ -164,7 +165,7 @@ func UpdateIncomingItem(c *gin.Context) {
 		Qty:        IncomingItem.Qty,
 		IncomingAt: IncomingItem.IncomingAt,
 		UserID:     IncomingItem.UserID,
-		ProductID:  IncomingItem.ProductID,
+		// ProductID:  IncomingItem.ProductID,
 	}).Error; err != nil {
 		tx.Rollback()
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
@@ -179,7 +180,7 @@ func UpdateIncomingItem(c *gin.Context) {
 
 	// get the associated product
 	Product := models.Products{}
-	if err := tx.Debug().Where("id = ?", IncomingItem.ProductID).First(&Product).Error; err != nil {
+	if err := tx.Debug().Where("id = ?", previousIncomingItem.ProductID).First(&Product).Error; err != nil {
 		tx.Rollback()
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error":   "Bad Request",
@@ -231,25 +232,88 @@ func UpdateIncomingItem(c *gin.Context) {
 	c.JSON(http.StatusOK, IncomingItem)
 }
 
-func DeleteIncomingItem(c *gin.Context) {
+func CancelIncomingItem(c *gin.Context) {
 	db := database.GetDB()
-	contentType := helpers.GetContentType(c)
 
 	IncomingItem := models.IncomingItems{}
-
 	incomingItemId, _ := strconv.Atoi(c.Param("incomingItemId"))
 
-	if contentType == appJSON {
-		c.ShouldBindJSON(&IncomingItem)
-	} else {
-		c.ShouldBind(&IncomingItem)
+	if err := c.ShouldBindJSON(&IncomingItem); err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error":   "Bad Request",
+			"message": err.Error(),
+		})
+
+		return
 	}
 
 	IncomingItem.ID = uint(incomingItemId)
 
-	err := db.Debug().Where("id = ?", incomingItemId).Delete(&IncomingItem).Error
+	tx := db.Begin()
 
-	if err != nil {
+	previousIncomingItem := models.IncomingItems{}
+	if err := tx.Debug().Where("id = ?", incomingItemId).First(&previousIncomingItem).Error; err != nil {
+		tx.Rollback()
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error":   "Bad Request",
+			"message": "Incoming Item Not Found",
+		})
+
+		return
+	}
+
+	previousQty := previousIncomingItem.Qty
+
+	if err := tx.Debug().Model(&previousIncomingItem).Update("status", "cancelled").Error; err != nil {
+		tx.Rollback()
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error":   "Bad Request",
+			"message": err.Error(),
+		})
+
+		return
+	}
+
+	diff := previousQty - IncomingItem.Qty
+
+	Product := models.Products{}
+	if err := tx.Debug().Where("id = ?", previousIncomingItem.ProductID).First(&Product).Error; err != nil {
+		tx.Rollback()
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error":   "Bad Request",
+			"message": "Product Not Found",
+		})
+
+		return
+	}
+
+	newStock := Product.Stock - diff
+
+	if newStock < 0 {
+		tx.Rollback()
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error":   "Bad Request",
+			"message": "Stock of Product Can't be negative",
+		})
+
+		return
+	}
+
+	Product.Stock = newStock
+
+	if err := tx.Debug().Save(&Product).Error; err != nil {
+		tx.Rollback()
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error":   "Bad Request",
+			"message": err.Error(),
+		})
+
+		return
+	}
+
+	tx.Commit()
+
+	if err := db.Debug().Preload("Products").Preload("Users").First(&IncomingItem, IncomingItem.ID).Error; err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error":   "Bad Request",
 			"message": err.Error(),
