@@ -79,7 +79,7 @@ func CreateOutgoingItem(c *gin.Context) {
 	}
 
 	// add status success to outgoing item
-	OutgoingItem.Status = "success"
+	OutgoingItem.Status = "succeed"
 
 	if err := db.Debug().Create(&OutgoingItem).Error; err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
@@ -229,23 +229,20 @@ func UpdateOutgoingItem(c *gin.Context) {
 func CancelOutgoingItem(c *gin.Context) {
 	db := database.GetDB()
 
-	OutgoingItem := models.OutgoingItems{}
-	outgoingItemId, _ := strconv.Atoi(c.Param("outgoingItemId"))
+	outgoingItemId, err := strconv.Atoi(c.Param("outgoingItemId"))
 
-	if err := c.ShouldBindJSON(&OutgoingItem); err != nil {
+	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error":   "Bad Request",
-			"message": err.Error(),
+			"message": "Invalid Parameter",
 		})
 
 		return
 	}
 
-	OutgoingItem.ID = uint(outgoingItemId)
-
 	tx := db.Begin()
 
-	previousOutgoingItem := models.IncomingItems{}
+	previousOutgoingItem := models.OutgoingItems{}
 	if err := tx.Debug().Where("id = ?", outgoingItemId).First(&previousOutgoingItem).Error; err != nil {
 		tx.Rollback()
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
@@ -268,7 +265,7 @@ func CancelOutgoingItem(c *gin.Context) {
 		return
 	}
 
-	diff := previousQty - OutgoingItem.Qty
+	diff := previousQty
 
 	Product := models.Products{}
 	if err := tx.Debug().Where("id = ?", previousOutgoingItem.ProductID).First(&Product).Error; err != nil {
@@ -289,6 +286,8 @@ func CancelOutgoingItem(c *gin.Context) {
 			"error":   "Bad Request",
 			"message": "Stock of Product Can't be Negative",
 		})
+
+		return
 	}
 
 	Product.Stock = newStock
@@ -305,7 +304,18 @@ func CancelOutgoingItem(c *gin.Context) {
 
 	tx.Commit()
 
-	if err := db.Debug().Preload("Products").Preload("Users").Find(&OutgoingItem, OutgoingItem.ID).Error; err != nil {
+	OutgoingItem := models.OutgoingItems{}
+
+	if err := db.Debug().First(&OutgoingItem, outgoingItemId).Error; err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error":   "Bad Request",
+			"message": err.Error(),
+		})
+
+		return
+	}
+
+	if err := db.Debug().Preload("Products").Preload("Users").First(&OutgoingItem, outgoingItemId).Error; err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error":   "Bad Request",
 			"message": err.Error(),

@@ -82,7 +82,7 @@ func CreateIncomingItem(c *gin.Context) {
 	fmt.Printf("IncomingItem: %+v\n", IncomingItem)
 
 	// add status success to incoming item
-	IncomingItem.Status = "success"
+	IncomingItem.Status = "succeed"
 
 	if err := db.Debug().Create(&IncomingItem).Error; err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
@@ -235,19 +235,15 @@ func UpdateIncomingItem(c *gin.Context) {
 func CancelIncomingItem(c *gin.Context) {
 	db := database.GetDB()
 
-	IncomingItem := models.IncomingItems{}
-	incomingItemId, _ := strconv.Atoi(c.Param("incomingItemId"))
-
-	if err := c.ShouldBindJSON(&IncomingItem); err != nil {
+	incomingItemId, err := strconv.Atoi(c.Param("incomingItemId"))
+	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error":   "Bad Request",
-			"message": err.Error(),
+			"message": "Invalid Parameter",
 		})
 
 		return
 	}
-
-	IncomingItem.ID = uint(incomingItemId)
 
 	tx := db.Begin()
 
@@ -274,7 +270,7 @@ func CancelIncomingItem(c *gin.Context) {
 		return
 	}
 
-	diff := previousQty - IncomingItem.Qty
+	diff := previousQty
 
 	Product := models.Products{}
 	if err := tx.Debug().Where("id = ?", previousIncomingItem.ProductID).First(&Product).Error; err != nil {
@@ -313,7 +309,17 @@ func CancelIncomingItem(c *gin.Context) {
 
 	tx.Commit()
 
-	if err := db.Debug().Preload("Products").Preload("Users").First(&IncomingItem, IncomingItem.ID).Error; err != nil {
+	IncomingItem := models.IncomingItems{}
+	if err := db.Debug().First(&IncomingItem, incomingItemId).Error; err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error":   "Bad Request",
+			"message": err.Error(),
+		})
+
+		return
+	}
+
+	if err := db.Debug().Preload("Products").Preload("Users").First(&IncomingItem, incomingItemId).Error; err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error":   "Bad Request",
 			"message": err.Error(),

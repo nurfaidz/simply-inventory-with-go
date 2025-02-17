@@ -14,7 +14,7 @@ func StartServer() *gin.Engine {
 
 	userRouter := r.Group("/users")
 	{
-		userRouter.POST("regiswater", controllers.UserRegister)
+		userRouter.POST("register", controllers.UserRegister)
 
 		userRouter.POST("login", controllers.UserLogin)
 
@@ -38,7 +38,7 @@ func StartServer() *gin.Engine {
 		incomingItemRouter.GET("/:incomingItemId", controllers.GetIncomingItems)
 		incomingItemRouter.POST("/", controllers.CreateIncomingItem)
 		incomingItemRouter.PUT("/:incomingItemId", controllers.UpdateIncomingItem)
-		incomingItemRouter.DELETE("/:incomingItemId", controllers.DeleteIncomingItem)
+		incomingItemRouter.PUT("/cancel/:incomingItemId", controllers.CancelIncomingItem)
 	}
 
 	outgoingItemRouter := r.Group("/outgoing-items")
@@ -48,7 +48,7 @@ func StartServer() *gin.Engine {
 		outgoingItemRouter.GET("/:outgoingItemId", controllers.GetOutgoingItems)
 		outgoingItemRouter.POST("/", controllers.CreateOutgoingItem)
 		outgoingItemRouter.PUT("/:outgoingItemId", controllers.UpdateOutgoingItem)
-		outgoingItemRouter.DELETE("/:outgoingItemId", controllers.DeleteOutgoingItem)
+		outgoingItemRouter.PUT("/cancel/:outgoingItemId", controllers.CancelOutgoingItem)
 	}
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
