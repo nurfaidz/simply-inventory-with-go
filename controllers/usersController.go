@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"github.com/golang-jwt/jwt"
 	"inventoryapp/database"
 	"inventoryapp/helpers"
 	"inventoryapp/models"
@@ -102,4 +103,34 @@ func UserLogout(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Logout success",
 	})
+}
+
+func UserProfile(c *gin.Context) {
+	db := database.GetDB()
+	User := models.Users{}
+
+	claims, err := helpers.VerifyToken(c)
+
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+			"error":   "Unauthorized",
+			"message": err.Error(),
+		})
+
+		return
+	}
+
+	err = db.Debug().Where("id = ?", claims.(jwt.MapClaims)["id"]).Take(&User).Error
+
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+			"error":   "Unauthorized",
+			"message": err.Error(),
+		})
+
+		return
+	}
+
+	c.JSON(http.StatusOK, User)
+
 }
