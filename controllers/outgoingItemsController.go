@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"gorm.io/gorm"
 	"inventoryapp/database"
 	"inventoryapp/models"
 	"net/http"
@@ -27,7 +28,9 @@ func GetOutgoingItems(c *gin.Context) {
 			return
 		}
 
-		result := db.Debug().Where("id = ?", id).Preload("Products").Preload("Users").Find(&outgoingItems)
+		result := db.Debug().Where("id = ?", id).Preload("Products", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
+		}).Preload("Users").Find(&outgoingItems)
 		count := result.RowsAffected
 
 		if result.Error != nil {
@@ -53,7 +56,9 @@ func GetOutgoingItems(c *gin.Context) {
 		return
 	}
 
-	if err := db.Debug().Preload("Products").Preload("Users").Find(&outgoingItems).Error; err != nil {
+	if err := db.Debug().Preload("Products", func(db *gorm.DB) *gorm.DB {
+		return db.Unscoped()
+	}).Preload("Users").Find(&outgoingItems).Error; err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error":   "Bad Request",
 			"message": err.Error(),

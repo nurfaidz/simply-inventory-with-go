@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"gorm.io/gorm"
 	"inventoryapp/database"
 	"inventoryapp/models"
 	"net/http"
@@ -28,7 +29,9 @@ func GetIncomingItems(c *gin.Context) {
 			return
 		}
 
-		result := db.Where("id = ?", id).Preload("Products").Preload("Users").Find(&incomingItems)
+		result := db.Where("id = ?", id).Preload("Products", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
+		}).Preload("Users").Find(&incomingItems)
 		count := result.RowsAffected
 
 		if result.Error != nil {
@@ -53,7 +56,9 @@ func GetIncomingItems(c *gin.Context) {
 		return
 	}
 
-	if err := db.Debug().Preload("Products").Preload("Users").Find(&incomingItems).Error; err != nil {
+	if err := db.Debug().Preload("Products", func(db *gorm.DB) *gorm.DB {
+		return db.Unscoped()
+	}).Preload("Users").Find(&incomingItems).Error; err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error":   "Bad Request",
 			"message": err.Error(),
@@ -78,8 +83,6 @@ func CreateIncomingItem(c *gin.Context) {
 
 		return
 	}
-
-	fmt.Printf("IncomingItem: %+v\n", IncomingItem)
 
 	// add status success to incoming item
 	IncomingItem.Status = "succeed"

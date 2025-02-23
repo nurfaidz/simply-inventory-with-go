@@ -7,8 +7,9 @@ import (
 
 type Products struct {
 	GormModel
-	Name  string `gorm:"not null" json:"name" form:"name" valid:"required~Your product name is required"`
-	Stock uint8  `json:"stock" form:"stock"`
+	Name      string         `gorm:"not null" json:"name" form:"name" valid:"required~Your product name is required"`
+	Stock     uint8          `json:"stock" form:"stock"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }
 
 func (p *Products) BeforeCreate(tx *gorm.DB) (err error) {
